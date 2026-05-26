@@ -28,15 +28,19 @@
       <span class="name-sub en-el">researcher · NICT Cybersecurity Lab · Tokyo</span>
       <span class="name-sub jp-el hidden" style="font-family:serif;">研究員・情報通信研究機構・サイバーセキュリティ研究室・東京</span>
     </div>
-    <div class="top-right">
-      <button class="lang-toggle" onclick="toggleLang()" id="lang-btn">EN → 日本語</button>
-      <nav class="nav">
-        <a href="#about"><span class="en-el">about</span><span class="jp-el hidden" style="font-family:serif;">について</span></a>
-        <a href="#education"><span class="en-el">education</span><span class="jp-el hidden" style="font-family:serif;">学歴</span></a>
-        <a href="#research"><span class="en-el">research</span><span class="jp-el hidden" style="font-family:serif;">研究</span></a>
-        <a href="#publications"><span class="en-el">publications</span><span class="jp-el hidden" style="font-family:serif;">出版物</span></a>
-        <a href="#awards"><span class="en-el">awards</span><span class="jp-el hidden" style="font-family:serif;">受賞</span></a>
-      </nav>
+   <div class="top-right">
+  <div class="controls">
+    <div class="switch-wrap" onclick="toggleTheme()" title="light / dark">
+      <div class="switch-label" id="sw-label">OFF</div>
+      <div class="switch-plate">
+        <span class="on-txt">ON</span>
+        <div class="switch-paddle"></div>
+        <span class="off-txt">OFF</span>
+      </div>
+    </div>
+    <button class="lang-toggle" onclick="toggleLang()" id="lang-btn">EN → 日本語</button>
+  </div>
+  <nav class="nav">
     </div>
   </header>
 
