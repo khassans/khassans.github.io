@@ -5,8 +5,8 @@
 :root {
   --bg: #111110;
   --ink: #e8e4da;
-  --mid: #ccc6bc;
-  --muted: #9a9488;
+  --mid: #ddd8ce;
+  --muted: #b0a89c;
   --faint: #3a3830;
   --gold: #e8c87a;
   --border: #1a1a18;
@@ -15,17 +15,17 @@
   --sub-color: #666;
   --nav-color: #777;
   --sec-head-color: #555;
-  --edu-txt: #888;
+  --edu-txt: #aaa;
   --edu-note: #555;
-  --rtitle: #999;
+  --rtitle: #bbb;
   --rtag: #555;
   --rtag-border: #333;
-  --ptitle: #888;
+  --ptitle: #aaa;
   --pmeta: #555;
   --pub-link: #666;
-  --award-txt: #888;
+  --award-txt: #aaa;
   --award-note: #555;
-  --contact-txt: #888;
+  --contact-txt: #aaa;
   --contact-link: #888;
   --e-part: #888;
   --e-at: #555;
