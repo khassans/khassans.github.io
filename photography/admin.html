@@ -9,6 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="admin.css">
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/heic2any/dist/heic2any.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -55,8 +57,8 @@
     <h2>3. Add frames</h2>
     <div class="drop" id="drop">
       drag photos here, or click to choose files<br>
-      <span style="font-size:11px">large images get resized to 2400px / jpeg on the way in</span>
-      <input type="file" id="file-input" accept="image/*" multiple>
+      <span style="font-size:11px">jpeg, png, heic/heif all fine, resized to 2400px on the way in. date and place are read from the photo automatically where available.</span>
+      <input type="file" id="file-input" accept="image/*,.heic,.HEIC,.heif,.HEIF" multiple>
     </div>
     <div class="queue" id="queue"></div>
     <div style="margin-top:16px;" id="publish-row" hidden>
@@ -66,6 +68,7 @@
     <div class="log" id="log"></div>
   </section>
 
+  <p style="font-size:10px;color:var(--paper-dim);text-align:center;">place names looked up via OpenStreetMap Nominatim · © OpenStreetMap contributors</p>
 </div>
 <script src="admin.js"></script>
 </body>

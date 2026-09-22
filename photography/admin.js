@@ -52,6 +52,51 @@
     var d = new Date();
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
+  function dateToISO(d) {
+    if (!(d instanceof Date) || isNaN(d.getTime())) return null;
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function isSupportedImage(file) {
+    if (/^image\//.test(file.type)) return true;
+    return /\.(heic|heif)$/i.test(file.name || "");
+  }
+  function isHeic(file) {
+    var type = (file.type || "").toLowerCase();
+    return type === "image/heic" || type === "image/heif" || /\.(heic|heif)$/i.test(file.name || "");
+  }
+
+  // ---------- EXIF: capture date + place ----------
+  function readExif(file) {
+    if (typeof exifr === "undefined") return Promise.resolve(null);
+    return exifr.parse(file, { gps: true, pick: ["DateTimeOriginal", "CreateDate", "Orientation", "latitude", "longitude"] })
+      .catch(function () { return null; });
+  }
+
+  // reverse-geocode via OSM Nominatim, queued to stay near their 1 req/sec limit
+  var geoQueue = Promise.resolve();
+  function reverseGeocode(lat, lon) {
+    var url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" + lat + "&lon=" + lon + "&zoom=14&addressdetails=1";
+    return fetch(url, { headers: { "Accept-Language": "en" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.address) return null;
+        var a = data.address;
+        var place = a.suburb || a.neighbourhood || a.city_district || a.town || a.village || a.city || a.county;
+        var city = a.city || a.town || a.state || a.country;
+        if (place && city && place !== city) return place + ", " + city;
+        return place || city || null;
+      })
+      .catch(function () { return null; });
+  }
+  function reverseGeocodeQueued(lat, lon) {
+    var result = geoQueue.then(function () { return reverseGeocode(lat, lon); });
+    geoQueue = result.then(function () {
+      return new Promise(function (res) { setTimeout(res, 1100); });
+    }, function () {
+      return new Promise(function (res) { setTimeout(res, 1100); });
+    });
+    return result;
+  }
 
   // ---------- GitHub Contents API ----------
   function ghHeaders() {
@@ -183,7 +228,7 @@
 
     loadManifest()
       .then(function () {
-        setStatus(els.connectStatus, "connected — " + manifest.length + " frames on the sheet", "ok");
+        setStatus(els.connectStatus, "connected, " + manifest.length + " frames on the sheet", "ok");
         els.rollSection.hidden = false;
         els.uploadSection.hidden = false;
         renderRoll();
@@ -203,19 +248,44 @@
   });
   if (localStorage.getItem("darkroom.owner")) els.remember.checked = true;
 
-  // ---------- image compression ----------
-  function compressImage(file) {
+  // ---------- HEIC conversion + image compression ----------
+  function toDecodableBlob(file) {
+    if (!isHeic(file)) return Promise.resolve(file);
+    if (typeof heic2any === "undefined") return Promise.reject(new Error("HEIC support failed to load"));
+    return heic2any({ blob: file, toType: "image/jpeg", quality: 0.92 })
+      .then(function (out) { return Array.isArray(out) ? out[0] : out; });
+  }
+
+  function compressImage(srcBlob, orientation) {
     return new Promise(function (resolve, reject) {
-      var url = URL.createObjectURL(file);
+      var url = URL.createObjectURL(srcBlob);
       var img = new Image();
       img.onload = function () {
         var maxDim = 2400;
-        var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-        var w = Math.round(img.width * scale);
-        var h = Math.round(img.height * scale);
+        var iw = img.width, ih = img.height;
+        var scale = Math.min(1, maxDim / Math.max(iw, ih));
+        var sw = Math.round(iw * scale), sh = Math.round(ih * scale);
+        var swap = orientation >= 5 && orientation <= 8;
+
         var canvas = document.createElement("canvas");
-        canvas.width = w; canvas.height = h;
-        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        canvas.width = swap ? sh : sw;
+        canvas.height = swap ? sw : sh;
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        switch (orientation) {
+          case 2: ctx.transform(-1, 0, 0, 1, sw, 0); break;
+          case 3: ctx.transform(-1, 0, 0, -1, sw, sh); break;
+          case 4: ctx.transform(1, 0, 0, -1, 0, sh); break;
+          case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
+          case 6: ctx.transform(0, 1, -1, 0, sh, 0); break;
+          case 7: ctx.transform(0, -1, -1, 0, sh, sw); break;
+          case 8: ctx.transform(0, -1, 1, 0, 0, sw); break;
+          default: break;
+        }
+        ctx.drawImage(img, 0, 0, sw, sh);
+
         canvas.toBlob(function (blob) {
           URL.revokeObjectURL(url);
           if (!blob) { reject(new Error("could not encode image")); return; }
@@ -238,12 +308,45 @@
   // ---------- upload queue ----------
   function addFiles(fileList) {
     Array.prototype.forEach.call(fileList, function (file) {
-      if (!/^image\//.test(file.type)) return;
+      if (!isSupportedImage(file)) return;
       var id = "q" + (idCounter++);
-      var item = { id: id, file: file, caption: "", category: "street", date: todayISO() };
+      var item = {
+        id: id, file: file, caption: "", category: "street", date: todayISO(),
+        userEditedCaption: false, userEditedDate: false
+      };
       queueItems.push(item);
       renderQueueItem(item);
-      compressImage(file)
+      setItemNote(item, isHeic(file) ? "converting heic…" : "reading photo details…");
+
+      var exifResult = null;
+      readExif(file)
+        .then(function (exif) {
+          exifResult = exif;
+          if (!exif) return;
+          var captured = dateToISO(exif.DateTimeOriginal || exif.CreateDate);
+          if (captured && !item.userEditedDate) {
+            item.date = captured;
+            if (item.dateEl) item.dateEl.value = captured;
+          }
+          if (exif.latitude != null && exif.longitude != null) {
+            setItemNote(item, "looking up where this was taken…");
+            return reverseGeocodeQueued(exif.latitude, exif.longitude).then(function (place) {
+              if (place && !item.userEditedCaption) {
+                item.caption = place;
+                if (item.captionEl) item.captionEl.value = place;
+              }
+            });
+          }
+        })
+        .catch(function () { /* no exif on this file, that's fine */ })
+        .then(function () {
+          setItemNote(item, "processing…");
+          return toDecodableBlob(file);
+        })
+        .then(function (decodable) {
+          var orientation = exifResult ? exifResult.Orientation : undefined;
+          return compressImage(decodable, orientation);
+        })
         .then(function (blob) {
           item.blob = blob;
           return blobToBase64(blob);
@@ -252,13 +355,21 @@
           item.base64 = b64;
           var imgEl = document.querySelector('[data-item="' + id + '"] img');
           if (imgEl) imgEl.src = "data:image/jpeg;base64," + b64;
+          setItemNote(item, file.name);
           updatePublishRow();
         })
         .catch(function (err) {
-          var row = document.querySelector('[data-item="' + id + '"]');
-          if (row) row.querySelector(".filename").textContent = "failed to process: " + err.message;
+          setItemNote(item, "failed to process: " + err.message);
         });
     });
+  }
+
+  function setItemNote(item, text) {
+    var row = document.querySelector('[data-item="' + item.id + '"]');
+    if (row) {
+      var el = row.querySelector(".filename");
+      if (el) el.textContent = text;
+    }
   }
 
   function renderQueueItem(item) {
@@ -275,9 +386,13 @@
 
     var caption = document.createElement("input");
     caption.type = "text";
-    caption.placeholder = "caption (optional)";
-    caption.addEventListener("input", function () { item.caption = caption.value; });
+    caption.placeholder = "caption (auto-filled from location if available)";
+    caption.addEventListener("input", function () {
+      item.caption = caption.value;
+      item.userEditedCaption = true;
+    });
     fields.appendChild(caption);
+    item.captionEl = caption;
 
     var row2 = document.createElement("div");
     row2.className = "row2";
@@ -295,14 +410,18 @@
     var date = document.createElement("input");
     date.type = "date";
     date.value = item.date;
-    date.addEventListener("input", function () { item.date = date.value; });
+    date.addEventListener("input", function () {
+      item.date = date.value;
+      item.userEditedDate = true;
+    });
     row2.appendChild(date);
+    item.dateEl = date;
 
     fields.appendChild(row2);
 
     var filename = document.createElement("div");
     filename.className = "filename";
-    filename.textContent = item.file.name + " — processing…";
+    filename.textContent = item.file.name + " · queued…";
     fields.appendChild(filename);
 
     row.appendChild(fields);
