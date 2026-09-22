@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Darkroom — admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="dot"></span>Darkroom</h1>
+  <p class="sub">Load new frames onto the contact sheet. Nothing here is public unless you link it. <a href="index.html">view the sheet</a></p>
+
+  <section id="connect-section">
+    <h2>1. Connect to the repo</h2>
+    <label for="token">GitHub token</label>
+    <input type="password" id="token" placeholder="fine-grained personal access token, Contents: read & write" autocomplete="off">
+    <div class="row">
+      <div>
+        <label for="owner">Repo owner</label>
+        <input type="text" id="owner" placeholder="khassans">
+      </div>
+      <div>
+        <label for="repo">Repo name</label>
+        <input type="text" id="repo" placeholder="photography">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="branch">Branch</label>
+        <input type="text" id="branch" value="main">
+      </div>
+      <div>
+        <label for="prefix">Photos folder</label>
+        <input type="text" id="prefix" value="photos">
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" id="remember"> remember owner / repo / branch on this device (not the token)</label>
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary" id="connect-btn">Connect</button>
+      <span class="status-line" id="connect-status"></span>
+    </div>
+  </section>
+
+  <section id="roll-section" hidden>
+    <h2>2. Current roll</h2>
+    <div class="roll" id="roll"></div>
+  </section>
+
+  <section id="upload-section" hidden>
+    <h2>3. Add frames</h2>
+    <div class="drop" id="drop">
+      drag photos here, or click to choose files<br>
+      <span style="font-size:11px">large images get resized to 2400px / jpeg on the way in</span>
+      <input type="file" id="file-input" accept="image/*" multiple>
+    </div>
+    <div class="queue" id="queue"></div>
+    <div style="margin-top:16px;" id="publish-row" hidden>
+      <button class="btn btn-primary" id="publish-btn">Publish to contact sheet</button>
+      <span class="status-line" id="publish-status"></span>
+    </div>
+    <div class="log" id="log"></div>
+  </section>
+
+</div>
+<script src="admin.js"></script>
+</body>
+</html>
